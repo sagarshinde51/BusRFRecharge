@@ -1,5 +1,2 @@
 streamlit
-MySQLdb
 mysql-connector-python
-mysqlclient
-pymysql
