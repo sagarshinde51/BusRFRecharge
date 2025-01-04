@@ -1,6 +1,6 @@
 import streamlit as st
-import MySQLdb
-from MySQLdb import OperationalError, IntegrityError
+import mysql.connector
+from mysql.connector import OperationalError, IntegrityError
 
 # MySQL database connection details
 host = "82.180.143.66"
@@ -8,63 +8,46 @@ user = "u263681140_students"
 passwd = "testStudents@123"
 db_name = "u263681140_students"
 
-# Function to update the balance for a given RFID
-def update_balance(rfid, additional_balance):
+# Function to fetch data from BusPass table
+def fetch_data_from_db():
     try:
-        # Connect to the MySQL database
-        conn = MySQLdb.connect(host=host, user=user, passwd=passwd, db=db_name)
+        # Establishing connection to the database using mysql.connector
+        conn = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=passwd,
+            database=db_name
+        )
         cursor = conn.cursor()
-
-        # Check if the RFID exists and fetch the current balance
-        cursor.execute("SELECT balance FROM BusPassangers WHERE RFID = %s", (rfid,))
-        record = cursor.fetchone()
-
-        if record:
-            # Get the previous balance
-            previous_balance = float(record[0])
-
-            # Calculate the new balance
-            new_balance = previous_balance + additional_balance
-
-            # Update the balance in the database
-            cursor.execute(
-                "UPDATE BusPassangers SET balance = %s WHERE RFID = %s",
-                (new_balance, rfid),
-            )
-            conn.commit()
-            st.success(
-                f"Balance for RFID {rfid} updated successfully.\n"
-                f"Previous Balance: {previous_balance}, New Balance: {new_balance}"
-            )
-        else:
-            st.error(f"No record found for RFID {rfid}.")
         
+        # Query to fetch all data from BusPass table
+        query = "SELECT * FROM BusPass"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        # Fetching column names
+        col_names = [desc[0] for desc in cursor.description]
+        
+        # Closing the connection
+        cursor.close()
+        conn.close()
+        
+        return col_names, rows
     except OperationalError as e:
         st.error(f"Database connection error: {e}")
+        return None, None
     except IntegrityError as e:
         st.error(f"Database integrity error: {e}")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-    finally:
-        if conn:
-            cursor.close()
-            conn.close()
+        return None, None
 
-# Streamlit user interface
-st.title("Update Passenger Balance")
-st.write("Enter RFID and additional balance to update the passenger's balance.")
+# Streamlit app
+st.title("BusPass Table Data")
 
-# Input fields
-rfid = st.text_input("Enter RFID:")
-additional_balance = st.text_input("Enter Additional Balance:")
+col_names, rows = fetch_data_from_db()
 
-# Update button
-if st.button("Update Balance"):
-    if not rfid or not additional_balance:
-        st.error("Both RFID and additional balance are required.")
-    else:
-        try:
-            additional_balance = float(additional_balance)  # Ensure balance is numeric
-            update_balance(rfid, additional_balance)
-        except ValueError:
-            st.error("Additional balance must be a numeric value.")
+if col_names and rows:
+    # Display the data in a table format
+    st.subheader("Data Retrieved from BusPass Table")
+    st.table([dict(zip(col_names, row)) for row in rows])
+else:
+    st.warning("No data retrieved or there was an error.")
